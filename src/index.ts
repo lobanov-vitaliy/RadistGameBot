@@ -150,25 +150,40 @@ const publishNews = exclusive(async (): Promise<number> => {
   return posted;
 });
 
-const publishVideo = exclusive(async (): Promise<YouTubeVideo | undefined> => {
-  if (!subscribers("video").length) return undefined;
-  const [video] = await nextVideos(new Set(state.videosSeen));
-  if (!video) return undefined;
-  const translated = await translateTitle(video).catch((err) => {
-    console.error("[video] GPT не перевёл название:", err);
-    return undefined;
-  });
-  const { text, previewUrl } = videoMessage(video, translated);
-  await broadcast("video", (chatId) =>
-    bot.api.sendMessage(chatId, text, {
+async function sendVideoPost(chatId: number, text: string, previewUrl: string): Promise<void> {
+  try {
+    await bot.api.sendMessage(chatId, text, {
       parse_mode: "HTML",
       link_preview_options: { url: previewUrl, prefer_large_media: true, show_above_text: true },
-    }),
-  );
-  remember(state.videosSeen, video.id, 5000);
-  saveState();
-  console.log(`[video] отправлено ${shortsUrl(video)}`);
-  return video;
+    });
+  } catch (err) {
+    if (!(err instanceof GrammyError)) throw err;
+    console.warn(`[video] Telegram не принял превью ${previewUrl} (${err.description}), шлю без превью`);
+    await bot.api.sendMessage(chatId, text, { parse_mode: "HTML", link_preview_options: { is_disabled: true } });
+  }
+}
+
+const publishVideo = exclusive(async (): Promise<YouTubeVideo | undefined> => {
+  if (!subscribers("video").length) return undefined;
+  const candidates = await nextVideos(new Set(state.videosSeen));
+  for (const video of candidates.slice(0, 3)) {
+    const translated = await translateTitle(video).catch((err) => {
+      console.error("[video] GPT не перевёл название:", err);
+      return undefined;
+    });
+    const { text, previewUrl } = videoMessage(video, translated);
+    try {
+      await broadcast("video", (chatId) => sendVideoPost(chatId, text, previewUrl));
+      console.log(`[video] отправлено ${shortsUrl(video)}`);
+      return video;
+    } catch (err) {
+      console.error(`[video] пропускаю ${shortsUrl(video)}:`, err instanceof GrammyError ? err.description : err);
+    } finally {
+      remember(state.videosSeen, video.id, 5000);
+      saveState();
+    }
+  }
+  return undefined;
 });
 
 bot.on("my_chat_member", (ctx) => {
