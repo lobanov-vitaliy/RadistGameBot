@@ -2,28 +2,38 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { join } from "node:path";
 import { config } from "./config.js";
 
+export const TOPICS = ["gold", "news", "video"] as const;
+export type Topic = (typeof TOPICS)[number];
+
+export interface ChatConfig {
+  id: number;
+  title: string;
+  topics: Record<Topic, boolean>;
+}
+
 export interface State {
-  /** группы и каналы, куда добавлен бот — туда и постим */
-  chats: number[];
-  /** ts (полночь UTC) последнего опубликованного курса голды */
+  chats: ChatConfig[];
   goldPostedTs: number;
-  /** при первом запуске старые новости помечаются прочитанными, а не постятся */
   newsSeeded: boolean;
-  /** gid опубликованных постов Steam */
   newsSeen: string[];
-  /** id уже отправленных видео YouTube */
   videosSeen: string[];
 }
 
 const file = join(config.dataDir, "state.json");
 
+export const allTopics = (): Record<Topic, boolean> => ({ gold: true, news: true, video: true });
+
+const saved = existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Partial<State>) : {};
+
 export const state: State = {
-  chats: [],
   goldPostedTs: 0,
   newsSeeded: false,
   newsSeen: [],
   videosSeen: [],
-  ...(existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Partial<State>) : {}),
+  ...saved,
+  chats: (saved.chats ?? []).map((chat: ChatConfig | number) =>
+    typeof chat === "number" ? { id: chat, title: "", topics: allTopics() } : chat,
+  ),
 };
 
 export function saveState(): void {
@@ -33,7 +43,6 @@ export function saveState(): void {
   renameSync(tmp, file);
 }
 
-/** Добавляет id в список и обрезает самые старые, чтобы файл не рос бесконечно. */
 export function remember(ids: string[], id: string, max: number): void {
   ids.push(id);
   if (ids.length > max) ids.splice(0, ids.length - max);

@@ -3,11 +3,8 @@ import { aiEnabled, askText } from "./openai.js";
 import { escapeHtml, formatCompact, truncate } from "./util.js";
 
 const API = "https://www.googleapis.com/youtube/v3";
-/** Shorts бывают до 3 минут */
 const MAX_DURATION_SEC = 180;
-/** Поиск стоит 100 единиц из 10 000 бесплатных в сутки, поэтому кандидатов обновляем раз в 3 часа. */
 const CANDIDATES_TTL_MS = 3 * 60 * 60_000;
-/** Отсекаем клипы из фильма «War Dogs» (2016) и прочий шум: игра пишется слитно. */
 const PUBLISHED_AFTER = "2025-01-01T00:00:00Z";
 const ABOUT_GAME = /wardogs/i;
 
@@ -57,13 +54,11 @@ async function searchIds(keyword: string): Promise<string[]> {
   return (json.items ?? []).flatMap((item) => (item.id?.videoId ? [item.id.videoId] : []));
 }
 
-/** ISO 8601: PT1M5S → 65 */
 function parseDuration(iso = ""): number {
   const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
   return m ? Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0) : 0;
 }
 
-/** Поиск отдаёт только id; названия, длительность и просмотры берём отдельным запросом (1 единица на 50 видео). */
 async function videoDetails(ids: string[]): Promise<YouTubeVideo[]> {
   const videos: YouTubeVideo[] = [];
   for (let i = 0; i < ids.length; i += 50) {
@@ -92,7 +87,6 @@ async function videoDetails(ids: string[]): Promise<YouTubeVideo[]> {
 
 let cache: { at: number; videos: YouTubeVideo[] } | undefined;
 
-/** Ещё не отправленные Shorts по ключевым словам, самые просматриваемые первыми. */
 export async function nextVideos(seen: Set<string>): Promise<YouTubeVideo[]> {
   if (!cache || Date.now() - cache.at > CANDIDATES_TTL_MS) {
     const ids = new Set<string>();
@@ -114,14 +108,12 @@ const TITLE_INSTRUCTIONS = `Ти ведеш україномовну Telegram-г
 - Геймерський сленг передавай природно, без канцеляриту.
 - Без хештегів, лапок, капсу й посилань, максимум один емодзі. До 100 символів, одним рядком.`;
 
-/** Название на украинском от GPT; без ключа OpenAI — undefined, тогда в посте останется оригинал. */
 export async function translateTitle(video: YouTubeVideo): Promise<string | undefined> {
   if (!aiEnabled()) return undefined;
   const title = await askText(TITLE_INSTRUCTIONS, `Назва: ${video.title}\nОпис: ${video.description || "—"}`);
   return truncate(title.split("\n")[0]!.trim(), 150) || undefined;
 }
 
-/** Текст поста и ссылка для превью: по обычной ссылке на видео Telegram показывает плеер. */
 export function videoMessage(video: YouTubeVideo, translatedTitle?: string): { text: string; previewUrl: string } {
   const stats = [`👁 ${formatCompact(video.views)}`];
   if (video.likes !== undefined) stats.push(`❤️ ${formatCompact(video.likes)}`);

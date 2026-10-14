@@ -7,14 +7,17 @@ interface ResponseOutput {
 
 export const aiEnabled = (): boolean => Boolean(config.openaiApiKey);
 
-/** Один вызов OpenAI Responses API, возвращает склеенный output_text. */
 async function respond(body: Record<string, unknown>): Promise<string> {
   if (!config.openaiApiKey) throw new Error("OPENAI_API_KEY не задан");
 
   const res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { authorization: `Bearer ${config.openaiApiKey}`, "content-type": "application/json" },
-    body: JSON.stringify({ model: config.openaiModel, ...body }),
+    body: JSON.stringify({
+      model: config.openaiModel,
+      reasoning: { effort: config.openaiReasoningEffort },
+      ...body,
+    }),
     signal: AbortSignal.timeout(120_000),
   });
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 500)}`);

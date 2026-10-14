@@ -14,14 +14,11 @@ const GOLD_PAGE_URL = "https://wardogstats.app/gold";
 export const GOLD_DAYS = 10;
 
 export interface GoldPoint {
-  /** полночь UTC дня, с которого действует курс */
   ts: number;
-  /** cash за 1 золотой слиток */
   value: number;
 }
 
 export interface GoldReport {
-  /** последние GOLD_DAYS дней по возрастанию даты */
   points: GoldPoint[];
   latest: GoldPoint;
   prev?: GoldPoint;
@@ -30,10 +27,6 @@ export interface GoldReport {
   max: GoldPoint;
 }
 
-/**
- * Курс собирает сообщество (MetaForge), wardogstats.app встраивает всю историю
- * в страницу как массив {"ts":…,"value":…} — его и вытаскиваем.
- */
 export async function fetchGoldHistory(): Promise<GoldPoint[]> {
   const res = await fetch(GOLD_PAGE_URL, {
     headers: { "user-agent": USER_AGENT },
@@ -90,7 +83,6 @@ export function goldCaption(report: GoldReport, quip?: string): string {
   return lines.join("\n");
 }
 
-/** Короткая шутка к посту от GPT. Курс выше — слитки дороже. */
 export function goldQuip(report: GoldReport): Promise<string> {
   const history = report.points.map((p) => `${formatDayShort(p.ts)}: ${formatMoney(p.value)}`).join("\n");
   return askText(

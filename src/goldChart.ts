@@ -20,7 +20,6 @@ const COLOR = {
   bone: "#ece6d2",
   dim: "#8d907c",
   gold: "#f5c542",
-  // выше курс — слитки дороже, поэтому рост красный
   up: "#ff6b57",
   down: "#5fd38d",
 };
@@ -29,7 +28,6 @@ function trendColor(from: number, to: number): string {
   return to > from ? COLOR.up : to < from ? COLOR.down : COLOR.dim;
 }
 
-/** Треугольник ▲/▼, правый край в x, по центру строки с базовой линией y. */
 function triangle(x: number, y: number, size: number, up: boolean, fill: string): string {
   const top = y - size * 0.95;
   const bottom = y - size * 0.1;
@@ -39,7 +37,6 @@ function triangle(x: number, y: number, size: number, up: boolean, fill: string)
   return `<polygon points="${points}" fill="${fill}"/>`;
 }
 
-/** Строка изменения, выровненная по правому краю: «+22,9% за добу ▲». */
 function changeRow(from: GoldPoint, to: GoldPoint, label: string, y: number, size: number): string {
   const color = trendColor(from.value, to.value);
   const right = W - PAD;

@@ -2,7 +2,6 @@ import { aiEnabled, askJson } from "./openai.js";
 import { USER_AGENT, escapeHtml, formatDayShort, truncate } from "./util.js";
 
 const APP_ID = 1867240;
-/** Только официальные посты разработчиков (патчи, хотфиксы, техработы), без пересказов прессы. */
 const FEED = "steam_community_announcements";
 
 export interface SteamNewsItem {
@@ -35,13 +34,10 @@ export const steamPostUrl = (item: SteamNewsItem): string =>
 
 const CLAN_IMAGE = "https://clan.akamai.steamstatic.com/images";
 
-/** Первая картинка поста — пойдёт превью над текстом. */
 export function firstImage(item: SteamNewsItem): string | undefined {
   const m = item.contents.match(/\{STEAM_CLAN_IMAGE\}(\/[^\s"\[\]]+)/);
   return m ? CLAN_IMAGE + m[1] : undefined;
 }
-
-// ---------- BBCode → блоки ----------
 
 interface Block {
   kind: "heading" | "item" | "text";
@@ -53,7 +49,6 @@ const ITEM = "\u0002";
 const BLOCK_TAGS = /\[\/?(?:p|h[1-6]|list|olist|table|tr|carousel|hr|quote|code)(?:[ =][^\]]*)?\]/gi;
 const INLINE_TAGS = /\[\/?(?:b|i|u|s|strike|spoiler|noparse|url|th|td|\*|expand|emoticon)(?:[ =][^\]]*)?\]/gi;
 
-/** Разбирает Steam BBCode на заголовки, пункты списков и абзацы. */
 function bbcodeBlocks(bbcode: string): Block[] {
   const lines = bbcode
     .replace(/\[previewyoutube="?([\w-]+)[^\]]*\]\s*\[\/previewyoutube\]/gi, "\n▶️ https://youtu.be/$1\n")
@@ -66,7 +61,6 @@ function bbcodeBlocks(bbcode: string): Block[] {
     .split("\n");
 
   const blocks: Block[] = [];
-  // В новом редакторе Steam текст пункта лежит в [p] на следующей строке после [*]
   let pending: Block["kind"] | undefined;
   for (const raw of lines) {
     let line = raw.trim();
@@ -95,14 +89,10 @@ function bbcodeToText(bbcode: string): string {
     .trim();
 }
 
-// ---------- Оформление для Telegram ----------
-
-/** Длинное прячем под «Показати повністю», чтобы пост не занимал весь экран. */
 function collapsible(html: string): string {
   return html.length > 700 ? `<blockquote expandable>${html}</blockquote>` : html;
 }
 
-/** Собирает строки, пока влезают в бюджет символов (у Telegram лимит 4096 на сообщение). */
 function fit(lines: string[], budget: number): string {
   const out: string[] = [];
   let used = 0;
@@ -146,13 +136,10 @@ function header(kind: NewsKind, title: string, item: SteamNewsItem): string {
 
 const footer = (item: SteamNewsItem): string => `🔗 <a href="${steamPostUrl(item)}">Читати в Steam</a>`;
 
-/** Без GPT: оригинал, но со структурой — заголовки, списки, абзацы. */
 function plainMessage(item: SteamNewsItem): string {
   const body = fit(renderBlocks(bbcodeBlocks(item.contents)), 3300);
   return [header("news", item.title, item), "", collapsible(body), "", footer(item)].join("\n");
 }
-
-// ---------- Пересказ от GPT ----------
 
 interface NewsDigest {
   kind: NewsKind;
@@ -218,7 +205,6 @@ function digestMessage(item: SteamNewsItem, digest: NewsDigest): string {
   return parts.join("\n");
 }
 
-/** Готовый HTML для Telegram: пересказ от GPT, а если ключа нет или OpenAI упал — оформленный оригинал. */
 export async function newsMessage(item: SteamNewsItem): Promise<string> {
   if (!aiEnabled()) return plainMessage(item);
   try {

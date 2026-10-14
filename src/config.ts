@@ -1,8 +1,6 @@
 try {
   process.loadEnvFile();
-} catch {
-  // .env не обязателен: переменные могут прийти из окружения (pm2, docker)
-}
+} catch {}
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
@@ -25,15 +23,15 @@ export const config = {
   botToken: required("BOT_TOKEN"),
 
   openaiApiKey: optional("OPENAI_API_KEY"),
-  openaiModel: optional("OPENAI_MODEL") ?? "gpt-5-mini",
+  openaiModel: optional("OPENAI_MODEL") ?? "gpt-6-luna",
+  openaiReasoningEffort: optional("OPENAI_REASONING_EFFORT") ?? "none",
 
   youtubeApiKey: optional("YOUTUBE_API_KEY"),
   youtubeKeywords: list(optional("YOUTUBE_KEYWORDS") ?? "wardogs funny,wardogs moments,wardogs"),
 
-  // Расписания в UTC, формат cron
   goldCron: optional("GOLD_CRON") ?? "15 0 * * *",
   newsCron: optional("NEWS_CRON") ?? "0 * * * *",
-  videoCron: optional("VIDEO_CRON") ?? "*/15 * * * *",
+  videoCron: optional("VIDEO_CRON") ?? "30 * * * *",
 
   dataDir: optional("DATA_DIR") ?? "data",
 };

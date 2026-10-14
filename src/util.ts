@@ -26,12 +26,10 @@ export const formatNumber = (n: number): string => integer.format(Math.round(n))
 export const formatMoney = (n: number): string => `$${formatNumber(n)}`;
 export const formatCompact = (n: number): string => compactNumber.format(n);
 
-/** +$52 519 / −$44 869 */
 export function formatMoneyDelta(delta: number): string {
   return `${delta >= 0 ? "+" : MINUS}${formatMoney(Math.abs(delta))}`;
 }
 
-/** Изменение from → to в процентах: +22,9% / −13,7% */
 export function formatPercent(from: number, to: number): string {
   const pct = ((to - from) / from) * 100;
   return `${pct >= 0 ? "+" : MINUS}${Math.abs(pct).toFixed(1).replace(".", ",")}%`;
@@ -47,7 +45,6 @@ export function startOfUtcDay(date = new Date()): number {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
-/** Не даёт задаче запускаться параллельно с самой собой (крон + команда админа). */
 export function exclusive<T>(fn: () => Promise<T>): () => Promise<T> {
   let chain: Promise<unknown> = Promise.resolve();
   return () => {
