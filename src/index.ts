@@ -1,4 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
+import { autoRetry } from "@grammyjs/auto-retry";
 import { Cron } from "croner";
 import { Bot, type Context, GrammyError, InlineKeyboard, InputFile, type NextFunction } from "grammy";
 import { config } from "./config.js";
@@ -15,6 +16,7 @@ const GOLD_RETRY_DELAY_MS = 15 * 60_000;
 const MAX_NEWS_AGE_MS = 3 * DAY_MS;
 
 const bot = new Bot(config.botToken);
+bot.api.config.use(autoRetry({ maxRetryAttempts: 5, maxDelaySeconds: 60 }));
 
 const findChat = (chatId: number): ChatConfig | undefined => state.chats.find((chat) => chat.id === chatId);
 
@@ -53,7 +55,7 @@ async function broadcast(topic: Topic, send: (chatId: number) => Promise<unknown
         console.warn(`[chats] бота убрали из ${chatId}, забываю`);
         removeChat(chatId);
       } else {
-        console.error(`[chats] не удалось отправить в ${chatId}:`, err);
+        console.error(`[chats] не удалось отправить в ${chatId}:`, err instanceof GrammyError ? err.description : err);
       }
     }
   }
