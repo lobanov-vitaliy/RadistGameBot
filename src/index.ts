@@ -7,7 +7,7 @@ import { renderGoldChart } from "./goldChart.js";
 import { type SteamNewsItem, fetchSteamNews, firstImage, newsMessage } from "./news.js";
 import { aiEnabled } from "./openai.js";
 import { remember, saveState, state } from "./state.js";
-import { type YouTubeVideo, nextVideos, shortsUrl, videoMessage, youtubeEnabled } from "./youtube.js";
+import { type YouTubeVideo, nextVideos, shortsUrl, translateTitle, videoMessage, youtubeEnabled } from "./youtube.js";
 import { DAY_MS, exclusive, htmlToPlain, truncate } from "./util.js";
 
 const GOLD_RETRIES = 8;
@@ -154,7 +154,11 @@ const publishVideo = exclusive(async (): Promise<YouTubeVideo | undefined> => {
   if (!hasChats()) throw new Error("Бота ще не додано в жодну групу");
   const [video] = await nextVideos(new Set(state.videosSeen));
   if (!video) return undefined;
-  const { text, previewUrl } = videoMessage(video);
+  const translated = await translateTitle(video).catch((err) => {
+    console.error("[video] GPT не перевёл название:", err);
+    return undefined;
+  });
+  const { text, previewUrl } = videoMessage(video, translated);
   await broadcast((chatId) =>
     bot.api.sendMessage(chatId, text, {
       parse_mode: "HTML",

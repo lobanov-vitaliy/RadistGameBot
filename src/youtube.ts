@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { aiEnabled, askText } from "./openai.js";
 import { escapeHtml, formatCompact, truncate } from "./util.js";
 
 const API = "https://www.googleapis.com/youtube/v3";
@@ -13,6 +14,7 @@ const ABOUT_GAME = /wardogs/i;
 export interface YouTubeVideo {
   id: string;
   title: string;
+  description: string;
   channel: string;
   durationSec: number;
   views: number;
@@ -77,6 +79,7 @@ async function videoDetails(ids: string[]): Promise<YouTubeVideo[]> {
       videos.push({
         id: v.id,
         title: s.title?.trim() ?? "",
+        description: truncate(s.description?.trim() ?? "", 500),
         channel: s.channelTitle?.trim() ?? "",
         durationSec,
         views: Number(v.statistics?.viewCount ?? 0),
@@ -104,14 +107,33 @@ export async function nextVideos(seen: Set<string>): Promise<YouTubeVideo[]> {
 
 export const shortsUrl = (video: YouTubeVideo): string => `https://youtube.com/shorts/${video.id}`;
 
+const TITLE_INSTRUCTIONS = `Ти ведеш україномовну Telegram-групу про шутер WARDOGS і постиш туди короткі відео з YouTube.
+Тобі дають назву та опис відео. Напиши українською назву, з якої зрозуміло, що відбувається у відео.
+- Спирайся на назву й опис, нічого не вигадуй. Якщо зрозуміти неможливо — просто переклади назву.
+- Назви зброї, техніки, мап, режимів і фракцій лишай англійською (T-72, Havoc, Bakurani, FOB).
+- Геймерський сленг передавай природно, без канцеляриту.
+- Без хештегів, лапок, капсу й посилань, максимум один емодзі. До 100 символів, одним рядком.`;
+
+/** Название на украинском от GPT; без ключа OpenAI — undefined, тогда в посте останется оригинал. */
+export async function translateTitle(video: YouTubeVideo): Promise<string | undefined> {
+  if (!aiEnabled()) return undefined;
+  const title = await askText(TITLE_INSTRUCTIONS, `Назва: ${video.title}\nОпис: ${video.description || "—"}`);
+  return truncate(title.split("\n")[0]!.trim(), 150) || undefined;
+}
+
 /** Текст поста и ссылка для превью: по обычной ссылке на видео Telegram показывает плеер. */
-export function videoMessage(video: YouTubeVideo): { text: string; previewUrl: string } {
+export function videoMessage(video: YouTubeVideo, translatedTitle?: string): { text: string; previewUrl: string } {
   const stats = [`👁 ${formatCompact(video.views)}`];
   if (video.likes !== undefined) stats.push(`❤️ ${formatCompact(video.likes)}`);
   if (video.channel) stats.push(escapeHtml(video.channel));
 
+  const original = escapeHtml(truncate(video.title, 200));
+  const title = translatedTitle
+    ? [`🎬 <b>${escapeHtml(translatedTitle)}</b>`, `<i>${original}</i>`]
+    : [`🎬 <b>${original}</b>`];
+
   const text = [
-    `🎬 <b>${escapeHtml(truncate(video.title, 200))}</b>`,
+    ...title,
     "",
     stats.join(" · "),
     `▶️ <a href="${shortsUrl(video)}">Дивитись на YouTube</a>`,
