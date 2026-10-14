@@ -389,7 +389,10 @@ if (!youtubeEnabled()) console.warn("YOUTUBE_API_KEY не задан: видео
 void logged("gold", publishGold);
 void runNews();
 
+let stopping = false;
+
 const stop = (): void => {
+  stopping = true;
   for (const job of jobs) job.stop();
   void bot.stop();
 };
@@ -401,10 +404,18 @@ await Promise.all([
   bot.api.deleteMyCommands({ scope: { type: "all_chat_administrators" } }),
 ]).catch((err) => console.error("[bot] не удалось убрать меню команд:", err));
 
-await bot.start({
-  onStart: (me) => {
-    console.log(`@${me.username} запущен, чатов: ${state.chats.length}`);
-    if (!state.chats.length) console.log(`  добавь бота в группу: https://t.me/${me.username}?startgroup=true`);
-    for (const job of jobs) console.log(`  ${job.name}: следующий запуск ${job.nextRun()?.toISOString()}`);
-  },
-});
+while (!stopping) {
+  try {
+    await bot.start({
+      onStart: (me) => {
+        console.log(`@${me.username} запущен, чатов: ${state.chats.length}`);
+        if (!state.chats.length) console.log(`  добавь бота в группу: https://t.me/${me.username}?startgroup=true`);
+        for (const job of jobs) console.log(`  ${job.name}: следующий запуск ${job.nextRun()?.toISOString()}`);
+      },
+    });
+  } catch (err) {
+    if (!(err instanceof GrammyError && err.error_code === 409)) throw err;
+    console.warn("[bot] Telegram опрашивает другой экземпляр бота, повторю через 5 секунд");
+    await sleep(5000);
+  }
+}
